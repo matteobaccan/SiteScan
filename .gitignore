@@ -1,0 +1,6 @@
+# Scan reports — contain vulnerability data on real sites, keep local
+reports/*
+!reports/.gitkeep
+
+# Claude Code local settings (personal permission overrides)
+.claude/settings.local.json
