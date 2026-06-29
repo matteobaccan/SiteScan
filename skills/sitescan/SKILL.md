@@ -75,6 +75,12 @@ For each match produce:
 
 **CMS probe list injection:** If a CMS is identified (WordPress, Joomla, Drupal, etc.), record its name. Phase 5 will automatically add CMS-specific paths to the probe list using `fingerprints.md` → **CMS-Specific Probe Paths**, even if those paths are absent from `robots.txt`.
 
+**Joomla version fetch:** If Joomla is detected, run:
+```bash
+curl -s {url}/administrator/manifests/files/joomla.xml
+```
+Extract the `<version>` tag value. Compare the major branch against `fingerprints.md` → **Joomla EOL Versions**. If the branch is end-of-life, record it as a HIGH-risk finding with the EOL date. Note also whether the manifest is publicly readable (it should return 403 — a 200 response is itself a LOW-risk information-disclosure finding).
+
 ---
 
 ### Phase 3 — JS Framework & Frontend Detection
@@ -143,6 +149,7 @@ Aggregate all findings from Phases 2–5 into the final report.
 | Admin panel reachable (200 or 302) | HIGH |
 | CMS version detected and appears outdated | HIGH |
 | PHP version is end-of-life (see PHP EOL Versions in fingerprints.md) | HIGH |
+| Joomla version is end-of-life (see Joomla EOL Versions in fingerprints.md) | HIGH |
 | REST API user enumeration accessible (`/wp-json/wp/v2/users` → 200) | HIGH |
 | SSL/TLS error | HIGH |
 | xmlrpc.php accessible (200 or 405 with `Allow: POST`) | MEDIUM |

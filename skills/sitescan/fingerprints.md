@@ -104,6 +104,25 @@ If `X-Powered-By: PHP/x.x` reveals any of these versions, record as **HIGH risk*
 
 ---
 
+## Joomla EOL Versions
+
+When Joomla is detected in Phase 2, fetch `/administrator/manifests/files/joomla.xml` and extract `<version>`. Match the **major.minor branch** (e.g. `4.4.x` → branch `4.x`) against this table.
+
+| Branch | EOL date | Risk note |
+|---|---|---|
+| Joomla 1.x | 2012-12-31 | CRITICAL — unsupported for 10+ years |
+| Joomla 2.5 | 2014-12-31 | CRITICAL — unsupported for 10+ years |
+| Joomla 3.x | 2023-08-17 | HIGH — EOL since August 2023 |
+| Joomla 4.x | 2025-11-17 | HIGH — EOL since November 2025 |
+| Joomla 5.x | ~2027-11 (TBD) | OK — current supported branch |
+| Joomla 6.x | TBD | OK — future branch |
+
+> Joomla's support policy: security fixes for the previous major branch for 2 years after a new major release. Joomla 5.0 was released November 2023 → Joomla 4.x EOL November 2025.
+
+**Additional finding:** if the manifest returns HTTP 200 (publicly readable without authentication), record it as a LOW-risk information-disclosure finding regardless of the version found.
+
+---
+
 ## JS & Frontend
 
 | Signal | Where to look | Technology | Category |
