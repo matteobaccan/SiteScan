@@ -212,3 +212,127 @@ Use these patterns to classify each probed path.
 | Everything else | other | info |
 
 **Risk elevation rule:** if HTTP status is 200 or 301/302 (reachable), upgrade `info` → `low` and `medio` → `alto` for `admin_panel`, `login_page`, and `sensitive_file` classifications.
+
+---
+
+## .NET Framework EOL Versions
+
+When ASP.NET is detected in Phase 2, extract the CLR build prefix from `X-AspNet-Version` and match against this table. Apply narrowing signals from **ASP.NET Version Narrowing Signals** before assigning a final risk level.
+
+| CLR prefix | Framework versions | EOL date | Risk |
+|---|---|---|---|
+| `1.0.*` | .NET 1.0 | 2009-07-14 | CRITICAL |
+| `1.1.*` | .NET 1.1 | 2013-10-08 | CRITICAL |
+| `2.0.*` | .NET 2.0 | 2011-07-12 | CRITICAL |
+| `2.0.*` | .NET 3.0 | 2011-07-12 | CRITICAL |
+| `2.0.*` | .NET 3.5 SP1 | 2029-01-09 | OK — still supported (bundled with Windows) |
+| `4.0.*` | .NET 4.0 | 2016-01-12 | CRITICAL |
+| `4.0.*` | .NET 4.5 | 2016-01-12 | CRITICAL |
+| `4.0.*` | .NET 4.5.1 | 2016-01-12 | CRITICAL |
+| `4.0.*` | .NET 4.5.2 | 2022-04-26 | HIGH |
+| `4.0.*` | .NET 4.6 | 2022-04-26 | HIGH |
+| `4.0.*` | .NET 4.6.1 | 2022-04-26 | HIGH |
+| `4.0.*` | .NET 4.6.2 | 2027-01-12 | OK |
+| `4.0.*` | .NET 4.7 – 4.8.1 | 2029-01-09 | OK |
+
+> CLR `4.0.*` covers Framework 4.0–4.8.1. Without narrowing, the range is ambiguous — report MEDIUM "potentially EOL" if the floor cannot be confirmed above 4.6.2.
+
+---
+
+## .NET Core / .NET 5+ EOL Versions
+
+When `Server: Kestrel` or other .NET Core signals are detected in Phase 2b, match the detected version against this table.
+
+| Version | Type | EOL date | Risk |
+|---|---|---|---|
+| .NET Core 1.0 / 1.1 | STS | 2019-06-27 | CRITICAL |
+| .NET Core 2.0 | STS | 2018-10-01 | CRITICAL |
+| .NET Core 2.1 | LTS | 2021-08-21 | HIGH |
+| .NET Core 2.2 | STS | 2019-12-23 | CRITICAL |
+| .NET Core 3.0 | STS | 2020-03-03 | CRITICAL |
+| .NET Core 3.1 | LTS | 2022-12-13 | HIGH |
+| .NET 5 | STS | 2022-05-10 | HIGH |
+| .NET 6 | LTS | 2024-11-12 | HIGH |
+| .NET 7 | STS | 2024-05-14 | HIGH |
+| .NET 8 | LTS | 2026-11-10 | OK — supported |
+| .NET 9 | STS | 2026-05-12 | OK — supported |
+| .NET 10 | LTS | ~2027-11 (TBD) | OK — in release |
+
+---
+
+## ASP.NET / IIS Known CVEs
+
+Consulted during Phase 2b Step 5. List only CVEs whose affected version range overlaps the detected range. If confidence is `low` or `medium`, annotate each as "potentially applicable — confirm exact version before ruling out."
+
+| CVE | Component | Affected versions | CVSS | Type |
+|---|---|---|---|---|
+| CVE-2010-3332 | ASP.NET ViewState | .NET 1.1 – 4.0 | 7.5 | Padding Oracle → info disclosure + RCE. Mitigated by ViewState MAC; removed in .NET 4.5 redesign. |
+| CVE-2015-1635 | HTTP.sys (IIS kernel driver) | Windows Server 2008/2008R2/2012/2012R2 | 10.0 | Unauthenticated RCE via malformed Range header (MS15-034). |
+| CVE-2017-8759 | .NET Framework WSDL/SOAP | .NET 2.0 – 4.7 | 7.8 | RCE via crafted WSDL document. |
+| CVE-2021-31166 | HTTP.sys (IIS kernel driver) | Windows 10 20H2, Server 2019/2022 | 9.8 | Wormable unauthenticated RCE (KB5003173). |
+| CVE-2021-26701 | System.Text.RegularExpressions | .NET Core 2.1, 3.1, .NET 5 | 9.8 | RCE via crafted regex input. |
+
+> For full CVE coverage: NVD filter `cpe:2.3:a:microsoft:.net_framework` or `cpe:2.3:a:microsoft:asp.net_core`
+
+---
+
+## ASP.NET-Specific Probe Paths
+
+Injected automatically into Phase 5 when ASP.NET is detected in Phase 2. Merge with robots.txt paths and deduplicate before probing.
+
+### Diagnostics and logging
+| Path | Classification | Risk if 200 | Notes |
+|---|---|---|---|
+| `/elmah.axd` | logging_endpoint | CRITICAL | Stack traces + exception log accessible without auth |
+| `/trace.axd` | legacy_endpoint | HIGH | Request trace viewer with session data |
+| `/__browserLink/requestData/` | dev_artifact | HIGH | VS Browser Link — must not exist in production |
+
+### WebForms handlers (version signals + attack surface)
+| Path | Classification | Risk if 200/400 | Notes |
+|---|---|---|---|
+| `/WebResource.axd` | resource_handler | LOW | 400 = handler active (expected without params); confirms WebForms |
+| `/ScriptResource.axd` | resource_handler | LOW | Confirms WebForms + ScriptManager |
+| `/bundles/` | bundle_endpoint | LOW | 200 = Bundling active → floor .NET 4.5 |
+
+### Sensitive IIS/ASP.NET files
+| Path | Classification | Risk if 200 | Notes |
+|---|---|---|---|
+| `/web.config.bak` | sensitive_file | CRITICAL | Backup config with connection strings and keys |
+| `/Web.config` | sensitive_file | CRITICAL | Case variation — some servers are case-sensitive |
+| `/.vs/` | dev_artifact | CRITICAL | Visual Studio solution data folder |
+| `/app_offline.htm` | other | INFO | Maintenance page — confirms ASP.NET stack |
+| `/global.asax` | other | LOW | Root application handler — info disclosure |
+| `/aspnet_client/` | legacy_endpoint | LOW | Legacy ASP.NET client-side files |
+
+### API and documentation
+| Path | Classification | Risk if 200 | Notes |
+|---|---|---|---|
+| `/swagger` | api_docs | MEDIUM | Swagger UI — exposes API surface |
+| `/swagger/v1/swagger.json` | api_docs | HIGH | Full JSON schema with all endpoints |
+| `/api/` | api_endpoint | MEDIUM | API root — endpoint enumeration possible |
+| `/health` | status_endpoint | LOW | Health check — may expose version and dependencies |
+
+### Framework-specific
+| Path | Classification | Risk if 200 | Notes |
+|---|---|---|---|
+| `/signalr/negotiate` | websocket_endpoint | LOW | Confirms SignalR + version in JSON body |
+| `/_framework/blazor.server.js` | js_bundle | LOW | Confirms Blazor Server (.NET 5+) |
+| `/WebService.asmx` | legacy_endpoint | MEDIUM | ASMX web service — SOAP interface exposed |
+
+---
+
+## ASP.NET Version Narrowing Signals
+
+Applied sequentially in Phase 2b Step 2 (.NET Framework) and Step 3 (.NET Core/5+). Each signal that fires narrows the version range or raises the floor.
+
+| Signal | Where | Information extracted |
+|---|---|---|
+| `X-AspNet-Version` build prefix | Response header | CLR branch → initial framework range |
+| `X-AspNetMvc-Version` header | Response header | MVC version → framework version floor |
+| `/bundles/` → HTTP 200 | Probe result | Floor .NET 4.5 (ASP.NET Bundling added in MVC 4/.NET 4.5) |
+| Cookie `SameSite` attribute present | `Set-Cookie` header | Floor .NET 4.7.2 |
+| `/WebResource.axd` → 200 or 400 | Probe result | Confirms WebForms handler active |
+| `Server: Kestrel` | Response header | Branch .NET Core/5+ |
+| `/_framework/blazor.server.js` → 200 | Probe result | Confirms .NET 5+ |
+| `/health` → JSON with `"version"` field | Probe body | Explicit .NET Core/5+ version string |
+| `/swagger/v1/swagger.json` → `"info.version"` | Probe body | API version (indicative) |
