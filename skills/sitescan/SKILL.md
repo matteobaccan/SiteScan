@@ -198,6 +198,7 @@ Check `Set-Cookie` headers for missing `Secure` and `HttpOnly` flags — each ga
 Build the probe list by merging **two sources** (deduplicate):
 1. Paths from `robots.txt` `Disallow:` / `Allow:` entries (skip if robots.txt was absent)
 2. CMS-specific paths from `fingerprints.md` → **CMS-Specific Probe Paths** for the CMS detected in Phase 2 (always inject these, regardless of robots.txt)
+3. If ASP.NET detected in Phase 2: paths from `fingerprints.md` → **ASP.NET-Specific Probe Paths** (always inject these, regardless of robots.txt or CMS detection)
 
 Probe up to **20 paths total** — note how many were skipped if more.
 
@@ -228,7 +229,16 @@ Aggregate all findings from Phases 2–5 into the final report.
 | Condition | Level |
 |---|---|
 | Sensitive file reachable (`.env`, `.git`, `.sql`, `.bak`) | CRITICAL |
+| `/elmah.axd` accessible (200) | CRITICAL |
+| .NET Framework ≤ 4.0 detected (CLR `1.x` or `2.0.*` and narrowing excludes 3.5 SP1) | CRITICAL |
+| `web.config.bak` or `.vs/` accessible (200) | CRITICAL |
 | Admin panel reachable (200 or 302) | HIGH |
+| `/__browserLink/requestData/` accessible (200) — VS debug artifact in production | HIGH |
+| `/trace.axd` accessible (200) | HIGH |
+| .NET Framework 4.5–4.6.1 detected (EOL 2022-04-26) | HIGH |
+| .NET Core / .NET 5–7 detected (all EOL) | HIGH |
+| CVE applicable to detected ASP.NET version range | HIGH |
+| `/swagger/v1/swagger.json` accessible (200) — full API schema exposed | HIGH |
 | CMS version detected and appears outdated | HIGH |
 | PHP version is end-of-life (see PHP EOL Versions in fingerprints.md) | HIGH |
 | Joomla version is end-of-life (see Joomla EOL Versions in fingerprints.md) | HIGH |
@@ -237,9 +247,14 @@ Aggregate all findings from Phases 2–5 into the final report.
 | xmlrpc.php accessible (200 or 405 with `Allow: POST`) | MEDIUM |
 | CMS internal directory accessible (`/tmp/`, `/cli/`, `/includes/`, `/cache/`) | MEDIUM |
 | 3+ security headers missing | MEDIUM |
+| .NET Framework 4.x with ambiguous range (narrowing inconclusive, floor below 4.6.2) | MEDIUM |
+| `/WebService.asmx` accessible (200) — legacy SOAP interface exposed | MEDIUM |
+| `/swagger` accessible (200) without authentication | MEDIUM |
 | Staging / dev area reachable | MEDIUM |
 | Cookie missing `Secure` or `HttpOnly` | MEDIUM |
 | Server version exposed in headers | LOW |
+| `X-AspNetMvc-Version` header exposed | LOW |
+| `/global.asax` accessible (200) | LOW |
 | Findings only at `low` confidence | INFO |
 
 One CRITICAL overrides all. Otherwise use the highest level found.
