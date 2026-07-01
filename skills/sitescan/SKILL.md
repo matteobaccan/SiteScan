@@ -83,6 +83,88 @@ Extract the `<version>` tag value. Compare the major branch against `fingerprint
 
 ---
 
+### Phase 2b — ASP.NET Deep Scan
+
+Runs only when Phase 2 detected `X-Powered-By: ASP.NET` or `X-AspNet-Version`. Consult `fingerprints.md` → **ASP.NET Version Narrowing Signals** throughout.
+
+#### Step 1 — Determine branch
+
+| Signal | Conclusion |
+|---|---|
+| `X-AspNet-Version` present + `X-Powered-By: ASP.NET` | .NET Framework (classic CLR) |
+| `Server: Kestrel` | .NET Core / .NET 5+ |
+| Neither Framework signal + cookie `__Host-` prefix or other .NET Core hints | Likely .NET Core/5+ behind proxy |
+
+#### Step 2 — .NET Framework: narrow the version
+
+Apply in sequence — each signal that fires raises the version floor:
+
+```
+X-AspNet-Version build prefix → initial range:
+    1.0.* → .NET 1.0
+    1.1.* → .NET 1.1
+    2.0.* → .NET 2.0 / 3.0 / 3.5 SP1
+    4.0.* → .NET 4.0 – 4.8.1  (ambiguous — continue probing)
+
+X-AspNetMvc-Version header (if present):
+    5.x → floor .NET 4.5
+    4.x → floor .NET 4.0
+    3.x → floor .NET 4.0
+    2.x → floor .NET 3.5 / 4.0
+
+Probe: curl -sI {url}/bundles/
+    200 → floor .NET 4.5
+
+Cookie SameSite attribute present in Set-Cookie:
+    → floor .NET 4.7.2
+
+Probe: curl -sI {url}/WebResource.axd
+    200 or 400 → WebForms handler active (record as confirming signal)
+```
+
+Set `aspnet_confidence`:
+- `high` — exact version known (rare, e.g. from error page disclosure)
+- `medium` — range narrowed by ≥1 signal beyond CLR prefix (e.g. `"4.5–4.8.1"`)
+- `low` — only CLR prefix available (e.g. `"4.0–4.8.1"`)
+
+#### Step 3 — .NET Core/5+: detect version
+
+```bash
+# Health endpoint — may return JSON with version
+curl -s {url}/health
+
+# Swagger schema — look for "info.version"
+curl -s {url}/swagger/v1/swagger.json
+
+# Blazor detection
+curl -sI {url}/_framework/blazor.server.js
+```
+
+If no probe returns a version: set `aspnet_confidence: low`, note
+"version not determinable automatically — verify manually".
+
+#### Step 4 — Apply EOL table
+
+- .NET Framework branch → consult `fingerprints.md` → **`.NET Framework EOL Versions`**
+- .NET Core/5+ branch → consult `fingerprints.md` → **`.NET Core / .NET 5+ EOL Versions`**
+
+If the detected range overlaps EOL versions, record a finding with the risk level from the table.
+
+For ambiguous `4.0.*` range with `confidence: low` or `medium` where floor is below 4.6.2:
+record MEDIUM — "potentially EOL — exact version unverifiable without direct access".
+
+#### Step 5 — CVE correlation
+
+Consult `fingerprints.md` → **`ASP.NET / IIS Known CVEs`**.
+Include in the report only CVEs whose affected version range overlaps the detected range.
+If `aspnet_confidence` is `low` or `medium`, annotate each CVE as
+"potentially applicable — confirm exact version before ruling out".
+
+Always append this footer when the CVE section is non-empty:
+> For full CVE coverage: NVD filter `cpe:2.3:a:microsoft:.net_framework` or `cpe:2.3:a:microsoft:asp.net_core`
+
+---
+
 ### Phase 3 — JS Framework & Frontend Detection
 
 Scan Phase 1 data against `fingerprints.md` → **JS & Frontend**.
