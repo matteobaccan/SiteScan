@@ -195,7 +195,7 @@ Check `Set-Cookie` headers for missing `Secure` and `HttpOnly` flags — each ga
 
 ### Phase 5 — robots.txt Path Probing
 
-Build the probe list by merging **two sources** (deduplicate):
+Build the probe list by merging **three sources** (deduplicate):
 1. Paths from `robots.txt` `Disallow:` / `Allow:` entries (skip if robots.txt was absent)
 2. CMS-specific paths from `fingerprints.md` → **CMS-Specific Probe Paths** for the CMS detected in Phase 2 (always inject these, regardless of robots.txt)
 3. If ASP.NET detected in Phase 2: paths from `fingerprints.md` → **ASP.NET-Specific Probe Paths** (always inject these, regardless of robots.txt or CMS detection)
